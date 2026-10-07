@@ -82,9 +82,12 @@ export class DetectiveDatabase {
     }
     if (!localStorage.getItem(this.storageKey)) {
       const initialProfile = {
-        detectiveName: 'Detective Belle',
+        displayName: 'Detective Belle',
+        username: 'detective_belle',
         agencyRank: 'Junior Fashion Sleuth',
         stars: 350,
+        lastDisplayNameChange: null,
+        lastUsernameChange: null,
         solvedCases: [],
         savedOutfits: []
       };
@@ -95,11 +98,79 @@ export class DetectiveDatabase {
   async getProfile() {
     try {
       const data = localStorage.getItem(this.storageKey);
-      return data ? JSON.parse(data) : null;
+      if (!data) return null;
+      const profile = JSON.parse(data);
+      // Ensure backwards compatibility with fields
+      if (!profile.displayName) profile.displayName = profile.detectiveName || 'Detective Belle';
+      if (!profile.username) profile.username = 'detective_belle';
+      return profile;
     } catch (e) {
       console.error('Error reading profile:', e);
       return null;
     }
+  }
+
+  getCooldownStatus(profile) {
+    const now = Date.now();
+    const FIVE_DAYS = 5 * 24 * 60 * 60 * 1000;
+    const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+
+    let displayAllowed = true;
+    let displayTimeRemaining = 0;
+    if (profile.lastDisplayNameChange) {
+      const elapsed = now - profile.lastDisplayNameChange;
+      if (elapsed < FIVE_DAYS) {
+        displayAllowed = false;
+        displayTimeRemaining = FIVE_DAYS - elapsed;
+      }
+    }
+
+    let usernameAllowed = true;
+    let usernameTimeRemaining = 0;
+    if (profile.lastUsernameChange) {
+      const elapsed = now - profile.lastUsernameChange;
+      if (elapsed < THIRTY_DAYS) {
+        usernameAllowed = false;
+        usernameTimeRemaining = THIRTY_DAYS - elapsed;
+      }
+    }
+
+    return {
+      displayAllowed,
+      displayDaysLeft: Math.ceil(displayTimeRemaining / (24 * 60 * 60 * 1000)),
+      displayHoursLeft: Math.ceil(displayTimeRemaining / (60 * 60 * 1000)),
+      usernameAllowed,
+      usernameDaysLeft: Math.ceil(usernameTimeRemaining / (24 * 60 * 60 * 1000)),
+      usernameHoursLeft: Math.ceil(usernameTimeRemaining / (60 * 60 * 1000))
+    };
+  }
+
+  async setDisplayName(newName) {
+    const profile = await this.getProfile();
+    const status = this.getCooldownStatus(profile);
+    if (!status.displayAllowed) {
+      return { success: false, error: `You can change your display name in ${status.displayDaysLeft} day(s)! (Allowed every 5 days)` };
+    }
+    profile.displayName = newName.trim();
+    profile.lastDisplayNameChange = Date.now();
+    await this.updateProfile(profile);
+    return { success: true, profile };
+  }
+
+  async setUsername(newUsername) {
+    const profile = await this.getProfile();
+    const status = this.getCooldownStatus(profile);
+    if (!status.usernameAllowed) {
+      return { success: false, error: `You can change your username in ${status.usernameDaysLeft} day(s)! (Allowed every 30 days)` };
+    }
+    const cleanUser = newUsername.trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+    if (cleanUser.length < 3) {
+      return { success: false, error: 'Username must be at least 3 letters or numbers!' };
+    }
+    profile.username = cleanUser;
+    profile.lastUsernameChange = Date.now();
+    await this.updateProfile(profile);
+    return { success: true, profile };
   }
 
   async updateProfile(updates) {

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mystery Runway & Detective Atelier</title>
-  <meta name="description" content="A glamorous high-fashion detective dress-up mystery game where you solve couture crimes and strut the runway!">
+  <meta name="description" content="A first-person glamorous fashion detective mystery game where you solve couture crimes and strut the runway!">
   
   <!-- Modern Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,24 +26,32 @@
       </div>
     </div>
 
-    <div class="player-profile-badge">
-      <span class="profile-avatar-circle">🔍</span>
-      <div class="profile-meta">
-        <span class="player-name" id="player-name-display">Detective Belle</span>
-        <span class="player-rank" id="player-rank-display">Junior Fashion Sleuth</span>
+    <div class="header-right-controls">
+      <!-- Player Profile Badge (Click to edit Display Name & Username) -->
+      <div class="player-profile-badge" id="open-profile-btn" title="Click to view & edit your Detective Passport">
+        <span class="profile-avatar-circle">🔍</span>
+        <div class="profile-meta">
+          <span class="player-name" id="player-name-display">Detective Belle</span>
+          <span class="player-username" id="player-user-display">@detective_belle</span>
+        </div>
+        <span class="stars-pill" id="player-stars-display">⭐ 350</span>
+        <span class="edit-badge-icon">✏️</span>
       </div>
-      <span class="stars-pill" id="player-stars-display">⭐ 350</span>
+
       <button class="sound-btn" id="sound-toggle-btn">🔊 Sound: On</button>
     </div>
   </header>
 
-  <!-- Main Game Tabs -->
+  <!-- Navigation Bar (Quick Scene Jump) -->
   <nav class="main-nav">
-    <button class="nav-tab active" data-view="atelier">
-      <span>✂️</span> The Atelier
+    <button class="nav-tab active" data-view="fp-shop">
+      <span>🏠</span> My Atelier (Shop)
     </button>
-    <button class="nav-tab" data-view="cases">
-      <span>📂</span> Case Files
+    <button class="nav-tab" data-view="fp-ballroom">
+      <span>🏰</span> The Grand Gala Ball
+    </button>
+    <button class="nav-tab" data-view="atelier">
+      <span>✂️</span> Dress-Up Studio
     </button>
     <button class="nav-tab" data-view="runway">
       <span>🌟</span> The Runway
@@ -53,11 +61,182 @@
     </button>
   </nav>
 
-  <!-- Main Application Body -->
+  <!-- Main Game Container -->
   <main class="app-container">
 
-    <!-- VIEW 1: THE ATELIER (DRESS-UP STUDIO) -->
-    <section id="view-atelier" class="game-view active">
+    <!-- ================= SCENE 1: FIRST PERSON ATELIER SHOP ================= -->
+    <section id="view-fp-shop" class="game-view active">
+      <div class="fp-scene fp-shop-interior">
+        <div class="scene-ambient-lighting"></div>
+
+        <!-- Shop Room Elements in First Person -->
+        <div class="shop-room-backdrop">
+          <!-- Big arched window with twinkling city lights -->
+          <div class="shop-window-frame">
+            <div class="city-lights"></div>
+          </div>
+
+          <!-- Cutting table with fabrics & shears -->
+          <div class="shop-cutting-table">
+            <div class="table-prop scissors" title="Golden Atelier Shears">✂️</div>
+            <div class="table-prop fabric-bolts" title="Fine Silk & Velvet Rolls">🧶</div>
+            <div class="table-prop candle" title="Cozy Candlelight">🕯️</div>
+          </div>
+
+          <!-- Dress-up vanity mirror rack in corner -->
+          <div class="shop-vanity-station" id="shop-open-closet-btn" title="Click to style your mannequin & clothes">
+            <div class="vanity-mirror-glow">🪞</div>
+            <span class="station-label">Dress-Up Wardrobe</span>
+          </div>
+        </div>
+
+        <!-- Dramatic First-Person Arrival: Madame Vivienne -->
+        <div class="fp-character-spotlight" id="shop-client-stage">
+          <div class="client-figure-wrapper">
+            <div class="client-character-sprite">
+              <span class="sprite-crown">👑</span>
+              <span class="sprite-face">😱</span>
+              <span class="sprite-gown">👗</span>
+            </div>
+          </div>
+
+          <!-- Interactive Dialogue Box -->
+          <div class="fp-dialog-box" id="shop-dialog-box">
+            <div class="dialog-speaker-tag">
+              <span class="speaker-name">Madame Vivienne</span>
+              <span class="speaker-role">High Fashion Couturière</span>
+            </div>
+            <div class="dialog-content">
+              <p class="dialog-speech-text" id="shop-speech-text">
+                “Oh my god! My centerpiece gown is missing right before my royal gala! Someone stole it from my atelier! I need someone to find it, can you please help me?”
+              </p>
+            </div>
+            
+            <!-- Dialogue Choice Buttons (Yes / No) -->
+            <div class="dialog-choices-row" id="shop-dialog-choices">
+              <button class="choice-btn yes-btn" id="btn-choice-yes">
+                💖 Yes, of course! Leave it to me!
+              </button>
+              <button class="choice-btn no-btn" id="btn-choice-no">
+                👋 Sorry, I'm busy right now.
+              </button>
+            </div>
+
+            <!-- Pretty Teleport Button (Appears when you say YES) -->
+            <div class="pretty-teleport-container hidden" id="pretty-teleport-container">
+              <div class="teleport-sparkles-orbit">
+                <span>✨</span><span>🌟</span><span>💎</span><span>✨</span>
+              </div>
+              <button class="pretty-teleport-btn" id="btn-teleport-ballroom">
+                <span class="teleport-btn-icon">✨🏰✨</span>
+                <span class="teleport-btn-text">Teleport to the Grand Gala</span>
+                <span class="teleport-btn-sub">Ready the magical carriage & travel to the ballroom</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Teleport Swirl Countdown Screen (Doesn't teleport immediately!) -->
+        <div class="teleport-swirl-overlay hidden" id="teleport-swirl-overlay">
+          <div class="swirl-portal-core"></div>
+          <div class="teleport-countdown-text" id="teleport-countdown-text">
+            🌟 Preparing magical carriage...
+          </div>
+          <div class="teleport-particles-burst">✨ 💎 ✨ 💫 🌟</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SCENE 2: FIRST PERSON GRAND GALA BALLROOM ================= -->
+    <section id="view-fp-ballroom" class="game-view">
+      <div class="fp-scene fp-ballroom-interior">
+        <div class="ballroom-chandelier">
+          <div class="chandelier-crystals">💎✨💎✨💎</div>
+        </div>
+
+        <!-- Ballroom Background with Dancing People & Curtains -->
+        <div class="ballroom-hall-backdrop">
+          
+          <!-- Dancing couples on the dancefloor -->
+          <div class="ballroom-dancers-cluster" id="hotspot-dancers" title="Click to talk to the dancers">
+            <div class="dancer-couple">💃🕺</div>
+            <span class="dancer-bubble-hint">🎵 Dancing</span>
+            <button class="talk-btn-mini" data-character="dancers">💬 Talk</button>
+          </div>
+
+          <!-- Hotspot: Sasha Velvet near the champagne table -->
+          <div class="ballroom-suspect-spot suspect-sasha" id="hotspot-sasha" title="Sasha Velvet (Rival Model)">
+            <div class="suspect-avatar-figure">🦚🥂</div>
+            <span class="suspect-name-tag">Sasha Velvet</span>
+            <button class="talk-btn-mini" data-character="sasha">💬 Talk</button>
+          </div>
+
+          <!-- Hotspot: Julian Vance lurking near velvet curtain -->
+          <div class="ballroom-suspect-spot suspect-julian" id="hotspot-julian" title="Julian Vance (Tailor Apprentice)">
+            <div class="suspect-avatar-figure">🪡🤫</div>
+            <span class="suspect-name-tag">Julian Vance</span>
+            <button class="talk-btn-mini" data-character="julian">💬 Talk</button>
+          </div>
+
+          <!-- Hotspot: Baroness Camille near the balcony -->
+          <div class="ballroom-suspect-spot suspect-baroness" id="hotspot-baroness" title="Baroness Camille">
+            <div class="suspect-avatar-figure">🎭✨</div>
+            <span class="suspect-name-tag">Baroness Camille</span>
+            <button class="talk-btn-mini" data-character="baroness">💬 Talk</button>
+          </div>
+
+          <!-- CLUE ON THE FLOOR: Sapphire Fabric Scrap! -->
+          <div class="ballroom-floor-clue" id="clue-fabric-floor" title="Click to inspect this shiny fabric on the floor!">
+            <div class="sparkling-clue-item">
+              <span class="fabric-icon">🧵✨</span>
+              <span class="clue-ping-pulse"></span>
+            </div>
+            <span class="clue-floor-label">🔍 Fabric on floor</span>
+          </div>
+
+        </div>
+
+        <!-- Ballroom Investigation Status Bar -->
+        <div class="ballroom-status-bar">
+          <div class="evidence-pouch">
+            <span class="pouch-title">🎒 Detective Pouch:</span>
+            <span class="pouch-status" id="pouch-status-text">No clues found on the ballroom floor yet...</span>
+          </div>
+          <button class="action-btn gold" id="btn-confront-suspect" style="display: none;">
+            🎯 Confront & Accuse Culprit!
+          </button>
+          <button class="action-btn" id="btn-return-shop">
+            🏠 Return to Shop
+          </button>
+        </div>
+
+        <!-- Interactive Talk & Inspection Dialog Modal -->
+        <div class="ballroom-dialog-modal hidden" id="ballroom-dialog-modal">
+          <div class="dialog-modal-card">
+            <div class="dialog-modal-header">
+              <span class="dialog-char-icon" id="modal-char-icon">💬</span>
+              <div>
+                <h4 id="modal-char-name">Character Name</h4>
+                <p id="modal-char-subtitle">Guest</p>
+              </div>
+              <button class="close-modal-x" id="modal-close-btn">&times;</button>
+            </div>
+            <div class="dialog-modal-body">
+              <p class="modal-speech-bubble" id="modal-char-speech">
+                “Oh hello! Are you enjoying the grand music?”
+              </p>
+              <div class="modal-action-options" id="modal-char-actions">
+                <!-- Dynamic questions / actions like compare fabric or talk -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ================= VIEW 3: THE ATELIER (DRESS-UP STUDIO) ================= -->
+    <section id="view-atelier" class="game-view">
       <div class="atelier-layout">
         
         <!-- Left Stage: Avatar & Look Stats -->
@@ -113,75 +292,16 @@
           </div>
 
           <!-- Wardrobe Categories -->
-          <div class="category-bar" id="wardrobe-category-bar">
-            <!-- Dynamic Category Buttons -->
-          </div>
+          <div class="category-bar" id="wardrobe-category-bar"></div>
 
           <!-- Wardrobe Items Grid -->
-          <div class="items-grid" id="wardrobe-items-grid">
-            <!-- Dynamic Item Cards -->
-          </div>
+          <div class="items-grid" id="wardrobe-items-grid"></div>
         </div>
 
       </div>
     </section>
 
-    <!-- VIEW 2: CASE FILES (DETECTIVE INVESTIGATION) -->
-    <section id="view-cases" class="game-view">
-      <div class="cases-layout">
-        
-        <!-- Case Selector Bar -->
-        <div class="case-selector-bar">
-          <h3>Active Mystery Investigation</h3>
-          <select id="case-selector-dropdown" class="case-dropdown"></select>
-        </div>
-
-        <div class="case-details-grid">
-          
-          <!-- Briefing & Objectives -->
-          <div class="case-briefing-card">
-            <div class="client-header">
-              <div class="client-avatar" id="client-avatar">👑</div>
-              <div>
-                <h4 id="client-name">Madame Vivienne</h4>
-                <p class="brand-subtitle" id="case-title">The Midnight Ball Gown Ruin</p>
-              </div>
-            </div>
-
-            <p class="briefing-text" id="case-briefing"></p>
-
-            <div class="objective-box">
-              <strong>🎯 Detective Mission:</strong>
-              <p id="case-objective"></p>
-            </div>
-
-            <!-- Clue Collection -->
-            <div>
-              <h4 style="margin-bottom: 10px; font-size: 0.95rem;">🔍 Clues at Crime Scene</h4>
-              <div class="clues-list" id="case-clues-list"></div>
-            </div>
-          </div>
-
-          <!-- Suspects & Interrogation -->
-          <div class="case-investigation-card">
-            <h4 style="font-size: 1.1rem; color: #FFF;">👥 Interrogate Suspects</h4>
-            <p style="font-size: 0.85rem; color: var(--text-muted);">
-              Inspect the clues above to see how they match suspect statements. Then mark your prime suspect!
-            </p>
-
-            <div class="suspects-list" id="case-suspects-list"></div>
-
-            <button class="action-btn gold" id="btn-go-to-runway" style="margin-top: 10px; padding: 14px;">
-              ✨ Corner Culprit on the Runway &rarr;
-            </button>
-          </div>
-
-        </div>
-
-      </div>
-    </section>
-
-    <!-- VIEW 3: THE RUNWAY SHOWDOWN -->
+    <!-- ================= VIEW 4: THE RUNWAY SHOWDOWN ================= -->
     <section id="view-runway" class="game-view">
       <div class="runway-layout">
 
@@ -201,14 +321,12 @@
         </div>
 
         <!-- Verdict & Judges Modal Card -->
-        <div class="verdict-card hidden" id="runway-verdict-card">
-          <!-- Populated dynamically upon runway walk -->
-        </div>
+        <div class="verdict-card hidden" id="runway-verdict-card"></div>
 
       </div>
     </section>
 
-    <!-- VIEW 4: FASHION CONTESTS & CLOSET -->
+    <!-- ================= VIEW 5: FASHION CONTESTS & CLOSET ================= -->
     <section id="view-contest" class="game-view">
       <div class="contest-layout">
 
@@ -222,7 +340,6 @@
             <button class="action-btn gold" id="btn-submit-contest">+ Enter Contest</button>
           </div>
 
-          <!-- Cloud Database Status Note -->
           <div class="cloud-sync-banner">
             🌐 <strong>Multiplayer Mode Ready:</strong> Entries are currently running in instant local mode. To connect live players across the internet, plug in your free Supabase database in <code>js/database.js</code>!
           </div>
@@ -247,6 +364,60 @@
     </section>
 
   </main>
+
+  <!-- ================= DETECTIVE PASSPORT & PROFILE MODAL ================= -->
+  <div class="profile-modal-overlay hidden" id="profile-modal-overlay">
+    <div class="profile-card-modal">
+      <div class="modal-top-bar">
+        <h3>🪪 Detective Passport</h3>
+        <button class="close-modal-x" id="close-profile-modal-btn">&times;</button>
+      </div>
+
+      <div class="profile-card-content">
+        <p class="passport-subtitle">Manage your player identity in Hauteville</p>
+
+        <!-- Display Name Field (5-day cooldown) -->
+        <div class="profile-field-group">
+          <div class="field-label-row">
+            <label for="input-display-name">Display Name:</label>
+            <span class="cooldown-badge" id="display-name-timer">Changeable every 5 days</span>
+          </div>
+          <div class="field-input-row">
+            <input type="text" id="input-display-name" class="passport-input" maxlength="25" placeholder="Detective Belle">
+            <button class="save-field-btn" id="btn-save-display-name">Update</button>
+          </div>
+          <small class="field-status-msg" id="display-name-msg"></small>
+        </div>
+
+        <!-- Username Field (30-day cooldown) -->
+        <div class="profile-field-group">
+          <div class="field-label-row">
+            <label for="input-username">Unique @Username:</label>
+            <span class="cooldown-badge" id="username-timer">Changeable every 30 days</span>
+          </div>
+          <div class="field-input-row">
+            <div class="at-wrapper">
+              <span class="at-symbol">@</span>
+              <input type="text" id="input-username" class="passport-input with-at" maxlength="20" placeholder="detective_belle">
+            </div>
+            <button class="save-field-btn" id="btn-save-username">Update</button>
+          </div>
+          <small class="field-status-msg" id="username-msg"></small>
+        </div>
+
+        <div class="passport-stats-box">
+          <div class="passport-stat-item">
+            <span>Agency Rank:</span>
+            <strong id="passport-rank">Junior Fashion Sleuth</strong>
+          </div>
+          <div class="passport-stat-item">
+            <span>Total Stars:</span>
+            <strong id="passport-stars">⭐ 350</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Core Game Script Module -->
   <script type="module" src="js/game.js"></script>

@@ -97,6 +97,51 @@ class SoundEngine {
     whiteNoise.start();
   }
 
+  playDoorBell() {
+    if (this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    // Cozy shop door chime (C6 - G5)
+    [1046.50, 783.99].forEach((f, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = f;
+
+      const startTime = this.ctx.currentTime + (idx * 0.18);
+      gain.gain.setValueAtTime(0.15, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.6);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + 0.65);
+    });
+  }
+
+  playTeleportSwirl() {
+    if (this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    // Magical rising swirling portal sound
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1200, this.ctx.currentTime + 1.8);
+
+    gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.2, this.ctx.currentTime + 1.2);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 2.0);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start();
+    osc.stop(this.ctx.currentTime + 2.0);
+  }
+
   playVictory() {
     if (this.muted) return;
     this.ensureContext();

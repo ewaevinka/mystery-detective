@@ -13,6 +13,7 @@ class GameController {
 
     this.activeCaseIndex = 0;
     this.inspectedClues = new Set();
+    this.hasBallroomFabricClue = false;
     this.selectedSuspectId = null;
     this.activeCategory = 'outerwear';
     this.profile = null;
@@ -24,14 +25,22 @@ class GameController {
     this.profile = await this.db.getProfile();
     this.setupNavigation();
     this.setupAudioToggle();
+    this.setupProfileModal();
+    this.setupFirstPersonShop();
+    this.setupFirstPersonBallroom();
     this.setupWardrobeUI();
-    this.setupCaseUI();
     this.setupRunwayUI();
     this.setupContestUI();
     this.updateAvatar();
     this.updateHeaderProfile();
+
+    // Play subtle entrance bell when game starts
+    setTimeout(() => {
+      sounds.playDoorBell();
+    }, 600);
   }
 
+  // --- AUDIO TOGGLE ---
   setupAudioToggle() {
     const btn = document.getElementById('sound-toggle-btn');
     if (btn) {
@@ -43,16 +52,126 @@ class GameController {
     }
   }
 
+  // --- PROFILE HEADER & PASSPORT MODAL (5-DAY & 30-DAY COOLDOWNS) ---
   updateHeaderProfile() {
     const nameEl = document.getElementById('player-name-display');
-    const rankEl = document.getElementById('player-rank-display');
+    const userEl = document.getElementById('player-user-display');
     const starsEl = document.getElementById('player-stars-display');
 
-    if (nameEl && this.profile) nameEl.textContent = this.profile.detectiveName;
-    if (rankEl && this.profile) rankEl.textContent = this.profile.agencyRank;
+    if (nameEl && this.profile) nameEl.textContent = this.profile.displayName;
+    if (userEl && this.profile) userEl.textContent = `@${this.profile.username}`;
     if (starsEl && this.profile) starsEl.textContent = `⭐ ${this.profile.stars}`;
   }
 
+  setupProfileModal() {
+    const openBtn = document.getElementById('open-profile-btn');
+    const modal = document.getElementById('profile-modal-overlay');
+    const closeBtn = document.getElementById('close-profile-modal-btn');
+
+    if (openBtn && modal) {
+      openBtn.addEventListener('click', () => {
+        this.renderProfileModalFields();
+        modal.classList.remove('hidden');
+      });
+    }
+
+    if (closeBtn && modal) {
+      closeBtn.addEventListener('click', () => {
+        modal.classList.add('hidden');
+      });
+    }
+
+    if (modal) {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.add('hidden');
+      });
+    }
+
+    // Display Name Save
+    const saveDisplayBtn = document.getElementById('btn-save-display-name');
+    if (saveDisplayBtn) {
+      saveDisplayBtn.addEventListener('click', async () => {
+        const input = document.getElementById('input-display-name');
+        const msgEl = document.getElementById('display-name-msg');
+        if (!input || !input.value.trim()) return;
+
+        const res = await this.db.setDisplayName(input.value.trim());
+        if (res.success) {
+          this.profile = res.profile;
+          this.updateHeaderProfile();
+          this.renderProfileModalFields();
+          sounds.playClueChime();
+          msgEl.style.color = '#22C55E';
+          msgEl.textContent = '✓ Display name updated! (Next change allowed in 5 days)';
+        } else {
+          msgEl.style.color = '#EF4444';
+          msgEl.textContent = res.error;
+        }
+      });
+    }
+
+    // Username Save
+    const saveUserBtn = document.getElementById('btn-save-username');
+    if (saveUserBtn) {
+      saveUserBtn.addEventListener('click', async () => {
+        const input = document.getElementById('input-username');
+        const msgEl = document.getElementById('username-msg');
+        if (!input || !input.value.trim()) return;
+
+        const res = await this.db.setUsername(input.value.trim());
+        if (res.success) {
+          this.profile = res.profile;
+          this.updateHeaderProfile();
+          this.renderProfileModalFields();
+          sounds.playClueChime();
+          msgEl.style.color = '#22C55E';
+          msgEl.textContent = '✓ Username updated! (Next change allowed in 30 days)';
+        } else {
+          msgEl.style.color = '#EF4444';
+          msgEl.textContent = res.error;
+        }
+      });
+    }
+  }
+
+  renderProfileModalFields() {
+    if (!this.profile) return;
+    const inputDisplay = document.getElementById('input-display-name');
+    const inputUser = document.getElementById('input-username');
+    const displayTimer = document.getElementById('display-name-timer');
+    const userTimer = document.getElementById('username-timer');
+    const rankEl = document.getElementById('passport-rank');
+    const starsEl = document.getElementById('passport-stars');
+
+    if (inputDisplay) inputDisplay.value = this.profile.displayName;
+    if (inputUser) inputUser.value = this.profile.username;
+    if (rankEl) rankEl.textContent = this.profile.agencyRank || 'Junior Fashion Sleuth';
+    if (starsEl) starsEl.textContent = `⭐ ${this.profile.stars}`;
+
+    const status = this.db.getCooldownStatus(this.profile);
+
+    if (displayTimer) {
+      if (status.displayAllowed) {
+        displayTimer.textContent = 'Changeable now (Every 5 days)';
+        displayTimer.style.color = '#22C55E';
+      } else {
+        displayTimer.textContent = `Wait ${status.displayDaysLeft}d to change`;
+        displayTimer.style.color = '#F59E0B';
+      }
+    }
+
+    if (userTimer) {
+      if (status.usernameAllowed) {
+        userTimer.textContent = 'Changeable now (Every 30 days)';
+        userTimer.style.color = '#22C55E';
+      } else {
+        userTimer.textContent = `Wait ${status.usernameDaysLeft}d to change`;
+        userTimer.style.color = '#F59E0B';
+      }
+    }
+  }
+
+  // --- NAVIGATION ---
   setupNavigation() {
     const tabs = document.querySelectorAll('.nav-tab');
     tabs.forEach(tab => {
@@ -75,7 +194,262 @@ class GameController {
     });
   }
 
-  // --- WARDROBE & ATELIER ---
+  switchScene(sceneKey) {
+    const tab = document.querySelector(`.nav-tab[data-view="${sceneKey}"]`);
+    if (tab) tab.click();
+  }
+
+  // ================= SCENE 1: FIRST PERSON SHOP =================
+  setupFirstPersonShop() {
+    const yesBtn = document.getElementById('btn-choice-yes');
+    const noBtn = document.getElementById('btn-choice-no');
+    const speechEl = document.getElementById('shop-speech-text');
+    const choicesRow = document.getElementById('shop-dialog-choices');
+    const teleportBox = document.getElementById('pretty-teleport-container');
+    const teleportBtn = document.getElementById('btn-teleport-ballroom');
+    const swirlOverlay = document.getElementById('teleport-swirl-overlay');
+    const countdownEl = document.getElementById('teleport-countdown-text');
+    const closetMirrorBtn = document.getElementById('shop-open-closet-btn');
+
+    // Click on vanity mirror in shop -> opens Dress-Up Studio
+    if (closetMirrorBtn) {
+      closetMirrorBtn.addEventListener('click', () => {
+        sounds.playEquip();
+        this.switchScene('atelier');
+      });
+    }
+
+    // CHOICE: YES
+    if (yesBtn) {
+      yesBtn.addEventListener('click', () => {
+        sounds.playEquip();
+        speechEl.textContent = `“Merci, Detective! You are our only hope! The carriage is outside to take you to the Grand Gala Ballroom. Step through when you are ready!”`;
+        choicesRow.classList.add('hidden');
+        teleportBox.classList.remove('hidden');
+      });
+    }
+
+    // CHOICE: NO
+    if (noBtn) {
+      noBtn.addEventListener('click', () => {
+        speechEl.textContent = `“Oh, please don't say no! The royal judges arrive in one hour and my reputation will be ruined! Please reconsider and help me!”`;
+        noBtn.textContent = 'Still deciding...';
+        yesBtn.classList.add('active');
+      });
+    }
+
+    // PRETTY TELEPORT BUTTON: DOES NOT TELEPORT IMMEDIATELY!
+    if (teleportBtn) {
+      teleportBtn.addEventListener('click', () => {
+        teleportBtn.disabled = true;
+        sounds.playTeleportSwirl();
+
+        // Show magical swirling countdown overlay
+        swirlOverlay.classList.remove('hidden');
+        countdownEl.textContent = '🌟 Preparing magical carriage...';
+
+        setTimeout(() => {
+          countdownEl.textContent = '✨ Sweeping through the Parisian night... 3...';
+        }, 900);
+
+        setTimeout(() => {
+          countdownEl.textContent = '🏰 Arriving at the Grand Gala Ballroom... 2...';
+        }, 1800);
+
+        setTimeout(() => {
+          countdownEl.textContent = '💎 Stepping into the ballroom! 1...';
+        }, 2700);
+
+        setTimeout(() => {
+          swirlOverlay.classList.add('hidden');
+          teleportBtn.disabled = false;
+          // Jump to the Grand Gala Ballroom in first person!
+          this.switchScene('fp-ballroom');
+        }, 3400);
+      });
+    }
+  }
+
+  // ================= SCENE 2: FIRST PERSON GRAND BALLROOM =================
+  setupFirstPersonBallroom() {
+    const floorClue = document.getElementById('clue-fabric-floor');
+    const returnShopBtn = document.getElementById('btn-return-shop');
+    const modal = document.getElementById('ballroom-dialog-modal');
+    const modalClose = document.getElementById('modal-close-btn');
+
+    // Return to shop button
+    if (returnShopBtn) {
+      returnShopBtn.addEventListener('click', () => {
+        this.switchScene('fp-shop');
+      });
+    }
+
+    // Inspect fabric clue on the floor!
+    if (floorClue) {
+      floorClue.addEventListener('click', () => {
+        this.hasBallroomFabricClue = true;
+        sounds.playClueChime();
+        floorClue.classList.add('inspected');
+
+        const pouchText = document.getElementById('pouch-status-text');
+        if (pouchText) {
+          pouchText.textContent = '🔍 Royal Sapphire Velvet fabric scrap with golden threads discovered!';
+          pouchText.style.color = '#00E5FF';
+        }
+
+        this.openBallroomDialog(
+          '🧵 Fabric Clue Discovered!',
+          'Crime Scene Evidence',
+          '🔍',
+          `You bend down and examine the fabric on the floor with your golden magnifying glass. It is a torn swatch of royal sapphire velvet with fine 24k gold embroidery thread! This belongs to Madame Vivienne's stolen ball gown! You tuck it carefully into your detective pouch.`
+        );
+      });
+    }
+
+    // Close modal
+    if (modalClose) {
+      modalClose.addEventListener('click', () => {
+        modal.classList.add('hidden');
+      });
+    }
+
+    // NPC Talk Buttons
+    document.querySelectorAll('.talk-btn-mini').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const charKey = btn.dataset.character;
+        this.handleTalkToCharacter(charKey);
+      });
+    });
+  }
+
+  handleTalkToCharacter(charKey) {
+    if (charKey === 'dancers') {
+      this.openBallroomDialog(
+        'Camille & Luc',
+        'Grand Waltz Dancers',
+        '💃🕺',
+        `“Oh hello, Detective! Are you enjoying the waltz? Excuse me, but earlier we saw Julian Vance the apprentice sneaking by the heavy velvet curtains, looking very nervous!”`
+      );
+    } else if (charKey === 'sasha') {
+      this.openBallroomDialog(
+        'Sasha Velvet',
+        'Rival Prima Model',
+        '🦚',
+        `“Oh hello, darling! Looking for Madame Vivienne's missing centerpiece gown? Why would I steal it when my emerald silk gown already turns every head in the room? Look at my sleeves—not a single stray blue fiber!”`
+      );
+    } else if (charKey === 'baroness') {
+      this.openBallroomDialog(
+        'Baroness Camille',
+        'Gala VIP Guest',
+        '🎭',
+        `“Good evening, Sleuth. The chandeliers are mesmerizing tonight. But I did see someone carrying a bulky bundle toward the curtain alcove right before the music began!”`
+      );
+    } else if (charKey === 'julian') {
+      const actions = [];
+
+      if (this.hasBallroomFabricClue) {
+        actions.push({
+          label: '🔍 Compare Fabric Scrap with Julian\'s Sleeves',
+          isAccent: true,
+          handler: () => {
+            sounds.playClueChime();
+            this.openBallroomDialog(
+              'Julian Vance',
+              'Tailor Apprentice (Busted!)',
+              '🪡😱',
+              `You pull out the sapphire velvet fabric scrap from your pouch and hold it against Julian's coat. His sleeves have the EXACT SAME sapphire threads and golden embroidery fibers! And behind the curtain, Madame Vivienne's stolen ball gown is stuffed inside his leather bag!`,
+              [
+                {
+                  label: '🎯 Accuse Julian & Recover Stolen Gown!',
+                  isAccent: true,
+                  handler: () => {
+                    this.solveBallroomCase();
+                  }
+                }
+              ]
+            );
+          }
+        });
+      } else {
+        actions.push({
+          label: '👀 Ask about Madame Vivienne\'s Gown',
+          handler: () => {
+            alert('Julian sweats nervously: "I-I haven\'t seen any gown! Look for clues on the floor before you question me!"');
+          }
+        });
+      }
+
+      this.openBallroomDialog(
+        'Julian Vance',
+        'Tailor Apprentice',
+        '🪡',
+        `“Oh! Uh... hello Detective Belle! What brings you to this quiet corner near the curtains? I was just... admiring the ballroom drapes!”`,
+        actions
+      );
+    }
+  }
+
+  openBallroomDialog(name, subtitle, icon, speech, customActions = []) {
+    const modal = document.getElementById('ballroom-dialog-modal');
+    const nameEl = document.getElementById('modal-char-name');
+    const subEl = document.getElementById('modal-char-subtitle');
+    const iconEl = document.getElementById('modal-char-icon');
+    const speechEl = document.getElementById('modal-char-speech');
+    const actionsContainer = document.getElementById('modal-char-actions');
+
+    if (!modal) return;
+
+    if (nameEl) nameEl.textContent = name;
+    if (subEl) subEl.textContent = subtitle;
+    if (iconEl) iconEl.textContent = icon;
+    if (speechEl) speechEl.textContent = speech;
+
+    if (actionsContainer) {
+      actionsContainer.innerHTML = '';
+      customActions.forEach(action => {
+        const btn = document.createElement('button');
+        btn.className = `dialog-action-btn ${action.isAccent ? 'accent' : ''}`;
+        btn.textContent = action.label;
+        btn.onclick = () => {
+          action.handler();
+        };
+        actionsContainer.appendChild(btn);
+      });
+    }
+
+    modal.classList.remove('hidden');
+  }
+
+  async solveBallroomCase() {
+    sounds.playVictory();
+    this.profile.stars += 300;
+    await this.db.updateProfile({ stars: this.profile.stars });
+    this.updateHeaderProfile();
+
+    this.openBallroomDialog(
+      'Madame Vivienne',
+      'High Fashion Couturière (Delighted!)',
+      '👑✨',
+      `“Mon Dieu! You found my stolen centerpiece gown! Julian confessed everything! You are the greatest detective in Hauteville! Come, wear the recovered Sapphire Gown and take the runway!”`,
+      [
+        {
+          label: '✨ Wear Gown & Walk The Runway! ✨',
+          isAccent: true,
+          handler: () => {
+            // Equip the gala skirt and take runway!
+            this.wardrobe.currentLook.bottoms = 'bottom-gala-skirt';
+            this.wardrobe.currentLook.outerwear = 'coat-midnight-cape';
+            this.updateAvatar();
+            document.getElementById('ballroom-dialog-modal').classList.add('hidden');
+            this.switchScene('runway');
+          }
+        }
+      ]
+    );
+  }
+
+  // ================= SCENE 3: THE ATELIER (DRESS-UP STUDIO) =================
   setupWardrobeUI() {
     const catContainer = document.getElementById('wardrobe-category-bar');
     if (!catContainer) return;
@@ -96,11 +470,10 @@ class GameController {
       });
     });
 
-    // Customizer buttons (Skin & Hair)
     this.renderCustomizerSwatches();
     this.renderWardrobeItems();
 
-    // Reset Look button
+    // Reset Look
     const resetBtn = document.getElementById('reset-look-btn');
     if (resetBtn) {
       resetBtn.addEventListener('click', () => {
@@ -116,7 +489,7 @@ class GameController {
       });
     }
 
-    // Save Look button
+    // Save Look
     const saveBtn = document.getElementById('save-closet-btn');
     if (saveBtn) {
       saveBtn.addEventListener('click', async () => {
@@ -130,7 +503,7 @@ class GameController {
       });
     }
 
-    // Share Outfit Code button
+    // Share Outfit Code
     const shareBtn = document.getElementById('share-code-btn');
     if (shareBtn) {
       shareBtn.addEventListener('click', () => {
@@ -240,7 +613,6 @@ class GameController {
     if (avatarContainer) avatarContainer.innerHTML = svgCode;
     if (runwayDollContainer) runwayDollContainer.innerHTML = svgCode;
 
-    // Update stats bar
     const stats = this.wardrobe.calculateStats();
     const stealthVal = document.getElementById('stat-stealth');
     const glamourVal = document.getElementById('stat-glamour');
@@ -251,117 +623,7 @@ class GameController {
     if (clueVal) clueVal.textContent = stats.clueBonus;
   }
 
-  // --- MYSTERY CASE FILES ---
-  setupCaseUI() {
-    const caseSelector = document.getElementById('case-selector-dropdown');
-    if (caseSelector) {
-      caseSelector.innerHTML = MYSTERY_CASES.map((c, i) => `
-        <option value="${i}">${c.title} (${c.difficulty})</option>
-      `).join('');
-
-      caseSelector.addEventListener('change', (e) => {
-        this.activeCaseIndex = parseInt(e.target.value, 10);
-        this.inspectedClues.clear();
-        this.selectedSuspectId = null;
-        this.renderActiveCase();
-      });
-    }
-
-    this.renderActiveCase();
-  }
-
-  renderActiveCase() {
-    const c = MYSTERY_CASES[this.activeCaseIndex];
-    if (!c) return;
-
-    const titleEl = document.getElementById('case-title');
-    const clientNameEl = document.getElementById('client-name');
-    const clientAvatarEl = document.getElementById('client-avatar');
-    const briefingEl = document.getElementById('case-briefing');
-    const objectiveEl = document.getElementById('case-objective');
-
-    if (titleEl) titleEl.textContent = c.title;
-    if (clientNameEl) clientNameEl.textContent = `${c.client} (${c.clientRole})`;
-    if (clientAvatarEl) clientAvatarEl.textContent = c.clientAvatar;
-    if (briefingEl) briefingEl.textContent = c.briefing;
-    if (objectiveEl) objectiveEl.textContent = c.objective;
-
-    // Render Clues
-    const clueList = document.getElementById('case-clues-list');
-    if (clueList) {
-      clueList.innerHTML = c.clues.map(clue => {
-        const isFound = this.inspectedClues.has(clue.id);
-        return `
-          <div class="clue-item ${isFound ? 'inspected' : ''}" data-id="${clue.id}">
-            <div class="clue-icon">${clue.icon}</div>
-            <div class="clue-info">
-              <h5>${clue.name}</h5>
-              <p>${isFound ? clue.description : 'Click to inspect fabric clue with your magnifier...'}</p>
-            </div>
-            <button class="inspect-btn">${isFound ? '✓ Discovered' : '🔍 Inspect'}</button>
-          </div>
-        `;
-      }).join('');
-
-      clueList.querySelectorAll('.clue-item').forEach(item => {
-        item.addEventListener('click', () => {
-          const id = item.dataset.id;
-          if (!this.inspectedClues.has(id)) {
-            this.inspectedClues.add(id);
-            sounds.playClueChime();
-            this.renderActiveCase();
-          }
-        });
-      });
-    }
-
-    // Render Suspects
-    const suspectList = document.getElementById('case-suspects-list');
-    if (suspectList) {
-      suspectList.innerHTML = c.suspects.map(s => {
-        const isSelected = this.selectedSuspectId === s.id;
-        return `
-          <div class="suspect-card ${isSelected ? 'selected' : ''}" data-id="${s.id}">
-            <div class="suspect-avatar">${s.avatar}</div>
-            <div class="suspect-body">
-              <h4>${s.name} <span class="suspect-role">${s.role}</span></h4>
-              <blockquote class="suspect-statement">"${s.statement}"</blockquote>
-              ${s.clueAlibi && this.inspectedClues.size > 0 ? `
-                <div class="suspect-alibi">💡 <strong>Clue note:</strong> ${s.clueAlibi}</div>
-              ` : ''}
-            </div>
-            <button class="accuse-select-btn">
-              ${isSelected ? '🎯 Prime Suspect' : 'Mark as Suspect'}
-            </button>
-          </div>
-        `;
-      }).join('');
-
-      suspectList.querySelectorAll('.suspect-card').forEach(card => {
-        card.addEventListener('click', () => {
-          this.selectedSuspectId = card.dataset.id;
-          sounds.playEquip();
-          this.renderActiveCase();
-        });
-      });
-    }
-
-    // Accuse and walk button
-    const startRunwayBtn = document.getElementById('btn-go-to-runway');
-    if (startRunwayBtn) {
-      startRunwayBtn.onclick = () => {
-        if (!this.selectedSuspectId) {
-          alert('⚠️ Please select a prime suspect to accuse before taking the runway!');
-          return;
-        }
-        // Jump to Runway Tab
-        const runwayTab = document.querySelector('[data-view="runway"]');
-        if (runwayTab) runwayTab.click();
-      };
-    }
-  }
-
-  // --- RUNWAY SHOWDOWN ---
+  // ================= SCENE 4: RUNWAY SHOWDOWN =================
   setupRunwayUI() {
     const walkBtn = document.getElementById('btn-start-runway-walk');
     if (walkBtn) {
@@ -374,10 +636,8 @@ class GameController {
   async triggerRunwayWalk() {
     const walkBtn = document.getElementById('btn-start-runway-walk');
     const runwayStage = document.getElementById('runway-stage');
-    const resultsModal = document.getElementById('runway-verdict-card');
     if (walkBtn) walkBtn.disabled = true;
 
-    // Flash lights animation & camera sound
     runwayStage.classList.add('strut-active');
     sounds.playCameraFlash();
 
@@ -388,16 +648,14 @@ class GameController {
       runwayStage.classList.remove('strut-active');
       if (walkBtn) walkBtn.disabled = false;
 
-      const activeCase = MYSTERY_CASES[this.activeCaseIndex];
+      const activeCase = MYSTERY_CASES[0];
       const stats = this.wardrobe.calculateStats();
-      const evaluation = this.runway.evaluateLook(stats, activeCase, this.selectedSuspectId);
+      const evaluation = this.runway.evaluateLook(stats, activeCase, 'suspect-julian');
 
-      if (evaluation.passed) {
-        sounds.playVictory();
-        this.profile.stars += activeCase.rewardStars;
-        await this.db.updateProfile({ stars: this.profile.stars });
-        this.updateHeaderProfile();
-      }
+      sounds.playVictory();
+      this.profile.stars += 200;
+      await this.db.updateProfile({ stars: this.profile.stars });
+      this.updateHeaderProfile();
 
       this.showRunwayResults(evaluation, activeCase);
     }, 2000);
@@ -409,17 +667,10 @@ class GameController {
 
     verdictCard.classList.remove('hidden');
 
-    const suspect = activeCase.suspects.find(s => s.id === this.selectedSuspectId);
-
     verdictCard.innerHTML = `
-      <div class="verdict-banner ${evalResult.passed ? 'success' : 'failed'}">
-        <h3>${evalResult.passed ? '🎉 Case Solved! Standing Ovation!' : '❌ Case Unsolved! Misdirection on the Runway!'}</h3>
-        <p class="verdict-score-total">Total Runway Score: <strong>${evalResult.total} / 300 pts</strong></p>
-      </div>
-
-      <div class="verdict-accusation-box">
-        <h4>Suspect Confrontation: ${suspect ? suspect.name : 'Unknown'}</h4>
-        <p>${evalResult.isGuilty ? `<em>"${suspect.confession}"</em>` : `<em>"${suspect ? suspect.reactionWrong : ''}"</em>`}</p>
+      <div class="verdict-banner success">
+        <h3>🎉 Standing Ovation on the Runway!</h3>
+        <p class="verdict-score-total">Runway Score: <strong>${evalResult.total} / 300 pts</strong></p>
       </div>
 
       <div class="judges-grid">
@@ -434,24 +685,25 @@ class GameController {
       </div>
 
       <div class="verdict-actions">
-        ${evalResult.passed ? `<p class="reward-notice">⭐ Reward Claimed: +${activeCase.rewardStars} Stars!</p>` : ''}
-        <button id="close-verdict-btn" class="primary-btn">Continue Sleuthing</button>
+        <p class="reward-notice">⭐ Runway Reward: +200 Stars Claimed!</p>
+        <button id="close-verdict-btn" class="primary-btn">Return to Atelier</button>
       </div>
     `;
 
     document.getElementById('close-verdict-btn').onclick = () => {
       verdictCard.classList.add('hidden');
+      this.switchScene('fp-shop');
     };
   }
 
-  // --- ONLINE CONTESTS & CLOSET ---
+  // ================= SCENE 5: ONLINE CONTESTS & CLOSET =================
   setupContestUI() {
     const submitBtn = document.getElementById('btn-submit-contest');
     if (submitBtn) {
       submitBtn.addEventListener('click', async () => {
         const title = prompt('Name your Runway Contest entry:', 'Haute Noir Detective');
         if (title) {
-          await this.db.submitToContest(title, this.wardrobe.currentLook, this.profile.detectiveName);
+          await this.db.submitToContest(title, this.wardrobe.currentLook, this.profile.displayName);
           sounds.playClueChime();
           this.renderContestList();
           alert('🚀 Your look has been entered into the Online Runway Contest!');
@@ -494,7 +746,7 @@ class GameController {
           <span class="contest-theme-badge">${entry.theme}</span>
         </div>
         <div class="contest-body">
-          <p>Style: Gilded Sleuth Disguise</p>
+          <p>Style: Haute Sleuth Disguise</p>
           <div class="contest-votes-row">
             <span class="votes-count">💖 ${entry.votes || 0} Votes</span>
             <button class="vote-btn" data-id="${entry.id}">Vote 🌟</button>
@@ -548,8 +800,7 @@ class GameController {
           this.updateAvatar();
           this.renderWardrobeItems();
           sounds.playEquip();
-          // Jump to Atelier view
-          document.querySelector('[data-view="atelier"]').click();
+          this.switchScene('atelier');
         }
       });
     });
