@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mystery Runway & Detective Atelier</title>
+  <meta name="description" content="A glamorous high-fashion detective dress-up mystery game where you solve couture crimes and strut the runway!">
+  
+  <!-- Modern Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Game Styles -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Top Header Navigation & Profile Bar -->
+  <header class="game-header">
+    <div class="brand-section">
+      <span class="brand-icon">🕵️‍♀️✨</span>
+      <div>
+        <h1 class="brand-title">MYSTERY RUNWAY</h1>
+        <p class="brand-subtitle">The Detective Atelier</p>
+      </div>
+    </div>
+
+    <div class="player-profile-badge">
+      <span class="profile-avatar-circle">🔍</span>
+      <div class="profile-meta">
+        <span class="player-name" id="player-name-display">Detective Belle</span>
+        <span class="player-rank" id="player-rank-display">Junior Fashion Sleuth</span>
+      </div>
+      <span class="stars-pill" id="player-stars-display">⭐ 350</span>
+      <button class="sound-btn" id="sound-toggle-btn">🔊 Sound: On</button>
+    </div>
+  </header>
+
+  <!-- Main Game Tabs -->
+  <nav class="main-nav">
+    <button class="nav-tab active" data-view="atelier">
+      <span>✂️</span> The Atelier
+    </button>
+    <button class="nav-tab" data-view="cases">
+      <span>📂</span> Case Files
+    </button>
+    <button class="nav-tab" data-view="runway">
+      <span>🌟</span> The Runway
+    </button>
+    <button class="nav-tab" data-view="contest">
+      <span>🏆</span> Contests & Closet
+    </button>
+  </nav>
+
+  <!-- Main Application Body -->
+  <main class="app-container">
+
+    <!-- VIEW 1: THE ATELIER (DRESS-UP STUDIO) -->
+    <section id="view-atelier" class="game-view active">
+      <div class="atelier-layout">
+        
+        <!-- Left Stage: Avatar & Look Stats -->
+        <div class="atelier-left-stage">
+          <div class="stage-card">
+            <div class="stage-glow-spotlight"></div>
+            <div class="mannequin-frame" id="atelier-avatar-container">
+              <!-- SVG Mannequin dynamically injected here -->
+            </div>
+          </div>
+
+          <!-- Detective Stats Bar -->
+          <div class="stats-bar-card">
+            <div class="stat-item">
+              <span class="stat-label">Stealth Disguise</span>
+              <span class="stat-val" id="stat-stealth">0</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Runway Glamour</span>
+              <span class="stat-val" id="stat-glamour">0</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Clue Power</span>
+              <span class="stat-val" id="stat-clue">0</span>
+            </div>
+          </div>
+
+          <!-- Look Quick Actions -->
+          <div class="atelier-actions-row">
+            <button class="action-btn" id="reset-look-btn">🔄 Reset</button>
+            <button class="action-btn gold" id="save-closet-btn">💾 Save Look</button>
+            <button class="action-btn" id="share-code-btn">📋 Share Code</button>
+          </div>
+        </div>
+
+        <!-- Right Panel: Customizer & Wardrobe Grid -->
+        <div class="atelier-right-panel">
+          
+          <!-- Avatar Skin & Hair Customizer -->
+          <div class="customizer-box">
+            <div class="customizer-row">
+              <span class="row-label">Skin Tone:</span>
+              <div class="swatch-group" id="skin-swatch-row"></div>
+            </div>
+            <div class="customizer-row">
+              <span class="row-label">Hair Color:</span>
+              <div class="swatch-group" id="hair-swatch-row"></div>
+            </div>
+            <div class="customizer-row">
+              <span class="row-label">Hairstyle:</span>
+              <div class="swatch-group" id="hairstyle-selector"></div>
+            </div>
+          </div>
+
+          <!-- Wardrobe Categories -->
+          <div class="category-bar" id="wardrobe-category-bar">
+            <!-- Dynamic Category Buttons -->
+          </div>
+
+          <!-- Wardrobe Items Grid -->
+          <div class="items-grid" id="wardrobe-items-grid">
+            <!-- Dynamic Item Cards -->
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- VIEW 2: CASE FILES (DETECTIVE INVESTIGATION) -->
+    <section id="view-cases" class="game-view">
+      <div class="cases-layout">
+        
+        <!-- Case Selector Bar -->
+        <div class="case-selector-bar">
+          <h3>Active Mystery Investigation</h3>
+          <select id="case-selector-dropdown" class="case-dropdown"></select>
+        </div>
+
+        <div class="case-details-grid">
+          
+          <!-- Briefing & Objectives -->
+          <div class="case-briefing-card">
+            <div class="client-header">
+              <div class="client-avatar" id="client-avatar">👑</div>
+              <div>
+                <h4 id="client-name">Madame Vivienne</h4>
+                <p class="brand-subtitle" id="case-title">The Midnight Ball Gown Ruin</p>
+              </div>
+            </div>
+
+            <p class="briefing-text" id="case-briefing"></p>
+
+            <div class="objective-box">
+              <strong>🎯 Detective Mission:</strong>
+              <p id="case-objective"></p>
+            </div>
+
+            <!-- Clue Collection -->
+            <div>
+              <h4 style="margin-bottom: 10px; font-size: 0.95rem;">🔍 Clues at Crime Scene</h4>
+              <div class="clues-list" id="case-clues-list"></div>
+            </div>
+          </div>
+
+          <!-- Suspects & Interrogation -->
+          <div class="case-investigation-card">
+            <h4 style="font-size: 1.1rem; color: #FFF;">👥 Interrogate Suspects</h4>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">
+              Inspect the clues above to see how they match suspect statements. Then mark your prime suspect!
+            </p>
+
+            <div class="suspects-list" id="case-suspects-list"></div>
+
+            <button class="action-btn gold" id="btn-go-to-runway" style="margin-top: 10px; padding: 14px;">
+              ✨ Corner Culprit on the Runway &rarr;
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- VIEW 3: THE RUNWAY SHOWDOWN -->
+    <section id="view-runway" class="game-view">
+      <div class="runway-layout">
+
+        <div class="runway-stage-container" id="runway-stage">
+          <div class="spotlight-cone"></div>
+          <div class="camera-flash-overlay"></div>
+
+          <div class="runway-doll-wrapper" id="runway-doll-container">
+            <!-- Stage Avatar rendered here -->
+          </div>
+
+          <div class="runway-controls">
+            <button class="walk-runway-btn" id="btn-start-runway-walk">
+              📸 Take The Runway Walk!
+            </button>
+          </div>
+        </div>
+
+        <!-- Verdict & Judges Modal Card -->
+        <div class="verdict-card hidden" id="runway-verdict-card">
+          <!-- Populated dynamically upon runway walk -->
+        </div>
+
+      </div>
+    </section>
+
+    <!-- VIEW 4: FASHION CONTESTS & CLOSET -->
+    <section id="view-contest" class="game-view">
+      <div class="contest-layout">
+
+        <!-- Left: Online Runway Competitions -->
+        <div class="contest-panel-left">
+          <div class="contest-header-row">
+            <div>
+              <h3>🌟 Runway Competitions</h3>
+              <p class="brand-subtitle">Vote on outfits & enter weekly themes!</p>
+            </div>
+            <button class="action-btn gold" id="btn-submit-contest">+ Enter Contest</button>
+          </div>
+
+          <!-- Cloud Database Status Note -->
+          <div class="cloud-sync-banner">
+            🌐 <strong>Multiplayer Mode Ready:</strong> Entries are currently running in instant local mode. To connect live players across the internet, plug in your free Supabase database in <code>js/database.js</code>!
+          </div>
+
+          <div class="contest-entries-grid" id="community-entries-grid"></div>
+        </div>
+
+        <!-- Right: Detective Closet & Outfit Codes -->
+        <div class="closet-panel-right">
+          <div class="contest-header-row">
+            <div>
+              <h3>👗 Your Detective Closet</h3>
+              <p class="brand-subtitle">Saved custom looks and disguises</p>
+            </div>
+            <button class="action-btn" id="btn-import-code">📥 Import Code</button>
+          </div>
+
+          <div class="saved-closet-grid" id="saved-closet-grid"></div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Core Game Script Module -->
+  <script type="module" src="js/game.js"></script>
+</body>
+</html>
