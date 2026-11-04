@@ -1,20 +1,15 @@
 // Main Game Controller for Mystery Runway & Detective Atelier
 import { WARDROBE_DATA, WardrobeEngine } from './wardrobe.js';
-import { MYSTERY_CASES } from './cases.js';
-import { RunwayEngine } from './runway.js';
 import { DetectiveDatabase } from './database.js';
 import { sounds } from './audio.js';
+import { RANKS, rankFor, nextRank, activeSeason, pastSeasons, daysLeft, claimKey, claimableRewards } from './ranks.js';
 
 class GameController {
   constructor() {
     this.wardrobe = new WardrobeEngine();
-    this.runway = new RunwayEngine(this);
     this.db = new DetectiveDatabase();
 
-    this.activeCaseIndex = 0;
-    this.inspectedClues = new Set();
-    this.hasBallroomFabricClue = false;
-    this.selectedSuspectId = null;
+    this.play = null;           // the 3D mystery world (loads from js/play.js)
     this.activeCategory = 'outerwear';
     this.profile = null;
 
@@ -26,18 +21,36 @@ class GameController {
     this.setupNavigation();
     this.setupAudioToggle();
     this.setupProfileModal();
-    this.setupFirstPersonShop();
-    this.setupFirstPersonBallroom();
+    this.setupRanksModal();
     this.setupWardrobeUI();
-    this.setupRunwayUI();
     this.setupContestUI();
     this.updateAvatar();
     this.updateHeaderProfile();
+    this.setupWorld();
+  }
 
-    // Play subtle entrance bell when game starts
-    setTimeout(() => {
-      sounds.playDoorBell();
-    }, 600);
+  // --- THE 3D MYSTERY WORLD ---
+  async setupWorld() {
+    const loading = document.getElementById('world-loading');
+    try {
+      const { PlayController } = await import('./play.js');
+      this.play = new PlayController(this);
+      loading?.remove();
+      const worldVisible = document.getElementById('view-world')?.classList.contains('active');
+      this.play.setVisible(!!worldVisible);
+    } catch (err) {
+      console.error('3D world failed to load:', err);
+      if (loading) loading.textContent = '😢 The 3D world needs an internet connection to load. Check your Wi-Fi and refresh the page!';
+    }
+
+    const backBtn = document.getElementById('btn-back-to-world');
+    if (backBtn) backBtn.addEventListener('click', () => this.switchScene('world'));
+  }
+
+  // The magic mirror or the boutique van opens the Dress-Up Studio
+  openAtelierFromWorld() {
+    document.getElementById('btn-back-to-world')?.classList.remove('hidden');
+    this.switchScene('atelier');
   }
 
   // --- AUDIO TOGGLE ---
@@ -60,7 +73,134 @@ class GameController {
 
     if (nameEl && this.profile) nameEl.textContent = this.profile.displayName;
     if (userEl && this.profile) userEl.textContent = `@${this.profile.username}`;
-    if (starsEl && this.profile) starsEl.textContent = `⭐ ${this.profile.stars}`;
+    if (starsEl && this.profile) starsEl.textContent = `⭐ ${this.profile.stars.toLocaleString()}`;
+
+    const rankEl = document.getElementById('player-rank-display');
+    if (rankEl && this.profile) {
+      const rank = rankFor(this.profile.stars);
+      const gifts = claimableRewards(this.profile).length;
+      rankEl.textContent = `${rank.icon} ${rank.name}${gifts ? ` · 🎁 ${gifts}` : ''}`;
+      rankEl.classList.toggle('has-gift', gifts > 0);
+    }
+  }
+
+  // ================= 🏅 RANKS & RARE REWARDS =================
+  setupRanksModal() {
+    const overlay = document.getElementById('ranks-modal-overlay');
+    const open = (e) => {
+      e.stopPropagation(); // don't also open the passport
+      this.renderRanksModal();
+      overlay.classList.remove('hidden');
+      sounds.playEquip();
+    };
+    document.getElementById('player-stars-display')?.addEventListener('click', open);
+    document.getElementById('player-rank-display')?.addEventListener('click', open);
+    document.getElementById('close-ranks-modal-btn')?.addEventListener('click', () => overlay.classList.add('hidden'));
+    overlay?.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.add('hidden'); });
+  }
+
+  renderRanksModal(message = '') {
+    const body = document.getElementById('ranks-body');
+    if (!body) return;
+    const p = this.profile;
+    const now = new Date();
+    const current = rankFor(p.stars);
+    const next = nextRank(p.stars);
+    const season = activeSeason(now);
+    const owned = new Set(p.ownedItems || []);
+    const claimed = p.claimedRewards || {};
+    const itemById = (id) => WARDROBE_DATA.items.find(i => i.id === id);
+    const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+    body.replaceChildren();
+
+    if (message) body.appendChild(el('div', 'ranks-message', message));
+
+    // current rank + progress bar to the next one
+    const hero = el('div', 'rank-hero');
+    hero.append(el('div', 'rank-hero-icon', current.icon), el('div', 'rank-hero-name', current.name), el('div', 'rank-hero-stars', `⭐ ${p.stars.toLocaleString()} stars`));
+    if (next) {
+      const pct = Math.round(((p.stars - current.stars) / (next.stars - current.stars)) * 100);
+      const bar = el('div', 'rank-progress');
+      const fill = el('div', 'rank-progress-fill');
+      fill.style.width = `${pct}%`;
+      bar.appendChild(fill);
+      hero.append(bar, el('div', 'rank-next', `${(next.stars - p.stars).toLocaleString()} more stars to ${next.icon} ${next.name}${next.reward ? ' 🎁' : ''}`));
+    } else {
+      hero.appendChild(el('div', 'rank-next', '🏆 You reached the TOP rank! Legendary!'));
+    }
+    body.appendChild(hero);
+
+    // this season's rare rewards
+    const seasonBox = el('div', 'season-box');
+    if (season) {
+      const left = daysLeft(season, now);
+      seasonBox.append(el('h4', null, `${season.icon} ${season.name}`), el('p', 'season-timer', `⏳ These rare items disappear forever in ${left} day${left === 1 ? '' : 's'}!`));
+      const grid = el('div', 'reward-grid');
+      RANKS.filter(r => r.reward).forEach(r => {
+        const item = itemById(season.rewards[r.id]);
+        if (!item) return;
+        const card = el('div', 'reward-card');
+        const reached = p.stars >= r.stars;
+        const isClaimed = !!claimed[claimKey(season, r)] || owned.has(item.id);
+        card.classList.add(isClaimed ? 'claimed' : reached ? 'ready' : 'locked');
+        const preview = el('div', 'reward-preview', reached || isClaimed ? item.preview : '🔒');
+        preview.style.borderColor = item.color;
+        card.append(preview, el('div', 'reward-name', item.name), el('div', 'reward-rank', `${r.icon} ${r.name}`));
+        if (isClaimed) {
+          card.appendChild(el('div', 'reward-status', '✅ In your closet'));
+        } else if (reached) {
+          const btn = el('button', 'reward-claim-btn', '🎁 Claim!');
+          btn.onclick = () => this.claimReward(season, r, item);
+          card.appendChild(btn);
+        } else {
+          card.appendChild(el('div', 'reward-status', `Needs ⭐ ${r.stars.toLocaleString()}`));
+        }
+        grid.appendChild(card);
+      });
+      seasonBox.appendChild(grid);
+    } else {
+      seasonBox.append(el('h4', null, '✨ A new season is coming soon!'), el('p', 'season-timer', 'Keep solving mysteries to be ready for the next rare items.'));
+    }
+    body.appendChild(seasonBox);
+
+    // retired items from past seasons
+    const past = pastSeasons(now);
+    if (past.length) {
+      const retired = el('div', 'season-box retired');
+      retired.appendChild(el('h4', null, '🗝️ Retired Rare Items'));
+      const grid = el('div', 'reward-grid');
+      past.forEach(s => Object.values(s.rewards).forEach(id => {
+        const item = itemById(id);
+        if (!item) return;
+        const have = owned.has(id);
+        const card = el('div', `reward-card ${have ? 'claimed' : 'gone'}`);
+        card.append(el('div', 'reward-preview', have ? item.preview : '🚫'), el('div', 'reward-name', item.name), el('div', 'reward-status', have ? `✅ You have it! (${s.icon})` : 'Gone forever 😢'));
+        grid.appendChild(card);
+      }));
+      retired.appendChild(grid);
+      body.appendChild(retired);
+    }
+
+    // the full rank ladder
+    const ladder = el('div', 'rank-ladder');
+    ladder.appendChild(el('h4', null, '🪜 All Ranks'));
+    RANKS.forEach(r => {
+      const row = el('div', `rank-row ${p.stars >= r.stars ? 'reached' : ''} ${r === current ? 'current' : ''}`);
+      row.append(el('span', 'rank-row-icon', r.icon), el('span', 'rank-row-name', r.name), el('span', 'rank-row-stars', `⭐ ${r.stars.toLocaleString()}`), el('span', 'rank-row-gift', r.reward ? '🎁 Rare item' : ''));
+      ladder.appendChild(row);
+    });
+    body.appendChild(ladder);
+  }
+
+  async claimReward(season, rank, item) {
+    const p = this.profile;
+    p.ownedItems = [...new Set([...(p.ownedItems || []), item.id])];
+    p.claimedRewards = { ...(p.claimedRewards || {}), [claimKey(season, rank)]: Date.now() };
+    await this.db.updateProfile({ ownedItems: p.ownedItems, claimedRewards: p.claimedRewards });
+    sounds.playVictory();
+    this.renderWardrobeItems();
+    this.updateHeaderProfile();
+    this.renderRanksModal(`🎉 You got the ${item.name}! Find it in the Dress-Up Studio under ${WARDROBE_DATA.categories.find(c => c.id === item.category)?.name}.`);
   }
 
   setupProfileModal() {
@@ -145,7 +285,7 @@ class GameController {
 
     if (inputDisplay) inputDisplay.value = this.profile.displayName;
     if (inputUser) inputUser.value = this.profile.username;
-    if (rankEl) rankEl.textContent = this.profile.agencyRank || 'Junior Fashion Sleuth';
+    if (rankEl) rankEl.textContent = `${rankFor(this.profile.stars).icon} ${rankFor(this.profile.stars).name}`;
     if (starsEl) starsEl.textContent = `⭐ ${this.profile.stars}`;
 
     const status = this.db.getCooldownStatus(this.profile);
@@ -190,6 +330,10 @@ class GameController {
           this.renderContestList();
           this.renderClosetList();
         }
+        if (targetView === 'world') {
+          document.getElementById('btn-back-to-world')?.classList.add('hidden');
+        }
+        this.play?.setVisible(targetView === 'world');
       });
     });
   }
@@ -197,256 +341,6 @@ class GameController {
   switchScene(sceneKey) {
     const tab = document.querySelector(`.nav-tab[data-view="${sceneKey}"]`);
     if (tab) tab.click();
-  }
-
-  // ================= SCENE 1: FIRST PERSON SHOP =================
-  setupFirstPersonShop() {
-    const yesBtn = document.getElementById('btn-choice-yes');
-    const noBtn = document.getElementById('btn-choice-no');
-    const speechEl = document.getElementById('shop-speech-text');
-    const choicesRow = document.getElementById('shop-dialog-choices');
-    const teleportBox = document.getElementById('pretty-teleport-container');
-    const teleportBtn = document.getElementById('btn-teleport-ballroom');
-    const swirlOverlay = document.getElementById('teleport-swirl-overlay');
-    const countdownEl = document.getElementById('teleport-countdown-text');
-    const closetMirrorBtn = document.getElementById('shop-open-closet-btn');
-
-    // Click on vanity mirror in shop -> opens Dress-Up Studio
-    if (closetMirrorBtn) {
-      closetMirrorBtn.addEventListener('click', () => {
-        sounds.playEquip();
-        this.switchScene('atelier');
-      });
-    }
-
-    // CHOICE: YES
-    if (yesBtn) {
-      yesBtn.addEventListener('click', () => {
-        sounds.playEquip();
-        speechEl.textContent = `“Merci, Detective! You are our only hope! The carriage is outside to take you to the Grand Gala Ballroom. Step through when you are ready!”`;
-        choicesRow.classList.add('hidden');
-        teleportBox.classList.remove('hidden');
-      });
-    }
-
-    // CHOICE: NO
-    if (noBtn) {
-      noBtn.addEventListener('click', () => {
-        speechEl.textContent = `“Oh, please don't say no! The royal judges arrive in one hour and my reputation will be ruined! Please reconsider and help me!”`;
-        noBtn.textContent = 'Still deciding...';
-        yesBtn.classList.add('active');
-      });
-    }
-
-    // PRETTY TELEPORT BUTTON: DOES NOT TELEPORT IMMEDIATELY!
-    if (teleportBtn) {
-      teleportBtn.addEventListener('click', () => {
-        teleportBtn.disabled = true;
-        sounds.playTeleportSwirl();
-
-        // Show magical swirling countdown overlay
-        swirlOverlay.classList.remove('hidden');
-        countdownEl.textContent = '🌟 Preparing magical carriage...';
-
-        setTimeout(() => {
-          countdownEl.textContent = '✨ Sweeping through the Parisian night... 3...';
-        }, 900);
-
-        setTimeout(() => {
-          countdownEl.textContent = '🏰 Arriving at the Grand Gala Ballroom... 2...';
-        }, 1800);
-
-        setTimeout(() => {
-          countdownEl.textContent = '💎 Stepping into the ballroom! 1...';
-        }, 2700);
-
-        setTimeout(() => {
-          swirlOverlay.classList.add('hidden');
-          teleportBtn.disabled = false;
-          // Jump to the Grand Gala Ballroom in first person!
-          this.switchScene('fp-ballroom');
-        }, 3400);
-      });
-    }
-  }
-
-  // ================= SCENE 2: FIRST PERSON GRAND BALLROOM =================
-  setupFirstPersonBallroom() {
-    const floorClue = document.getElementById('clue-fabric-floor');
-    const returnShopBtn = document.getElementById('btn-return-shop');
-    const modal = document.getElementById('ballroom-dialog-modal');
-    const modalClose = document.getElementById('modal-close-btn');
-
-    // Return to shop button
-    if (returnShopBtn) {
-      returnShopBtn.addEventListener('click', () => {
-        this.switchScene('fp-shop');
-      });
-    }
-
-    // Inspect fabric clue on the floor!
-    if (floorClue) {
-      floorClue.addEventListener('click', () => {
-        this.hasBallroomFabricClue = true;
-        sounds.playClueChime();
-        floorClue.classList.add('inspected');
-
-        const pouchText = document.getElementById('pouch-status-text');
-        if (pouchText) {
-          pouchText.textContent = '🔍 Royal Sapphire Velvet fabric scrap with golden threads discovered!';
-          pouchText.style.color = '#00E5FF';
-        }
-
-        this.openBallroomDialog(
-          '🧵 Fabric Clue Discovered!',
-          'Crime Scene Evidence',
-          '🔍',
-          `You bend down and examine the fabric on the floor with your golden magnifying glass. It is a torn swatch of royal sapphire velvet with fine 24k gold embroidery thread! This belongs to Madame Vivienne's stolen ball gown! You tuck it carefully into your detective pouch.`
-        );
-      });
-    }
-
-    // Close modal
-    if (modalClose) {
-      modalClose.addEventListener('click', () => {
-        modal.classList.add('hidden');
-      });
-    }
-
-    // NPC Talk Buttons
-    document.querySelectorAll('.talk-btn-mini').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const charKey = btn.dataset.character;
-        this.handleTalkToCharacter(charKey);
-      });
-    });
-  }
-
-  handleTalkToCharacter(charKey) {
-    if (charKey === 'dancers') {
-      this.openBallroomDialog(
-        'Camille & Luc',
-        'Grand Waltz Dancers',
-        '💃🕺',
-        `“Oh hello, Detective! Are you enjoying the waltz? Excuse me, but earlier we saw Julian Vance the apprentice sneaking by the heavy velvet curtains, looking very nervous!”`
-      );
-    } else if (charKey === 'sasha') {
-      this.openBallroomDialog(
-        'Sasha Velvet',
-        'Rival Prima Model',
-        '🦚',
-        `“Oh hello, darling! Looking for Madame Vivienne's missing centerpiece gown? Why would I steal it when my emerald silk gown already turns every head in the room? Look at my sleeves—not a single stray blue fiber!”`
-      );
-    } else if (charKey === 'baroness') {
-      this.openBallroomDialog(
-        'Baroness Camille',
-        'Gala VIP Guest',
-        '🎭',
-        `“Good evening, Sleuth. The chandeliers are mesmerizing tonight. But I did see someone carrying a bulky bundle toward the curtain alcove right before the music began!”`
-      );
-    } else if (charKey === 'julian') {
-      const actions = [];
-
-      if (this.hasBallroomFabricClue) {
-        actions.push({
-          label: '🔍 Compare Fabric Scrap with Julian\'s Sleeves',
-          isAccent: true,
-          handler: () => {
-            sounds.playClueChime();
-            this.openBallroomDialog(
-              'Julian Vance',
-              'Tailor Apprentice (Busted!)',
-              '🪡😱',
-              `You pull out the sapphire velvet fabric scrap from your pouch and hold it against Julian's coat. His sleeves have the EXACT SAME sapphire threads and golden embroidery fibers! And behind the curtain, Madame Vivienne's stolen ball gown is stuffed inside his leather bag!`,
-              [
-                {
-                  label: '🎯 Accuse Julian & Recover Stolen Gown!',
-                  isAccent: true,
-                  handler: () => {
-                    this.solveBallroomCase();
-                  }
-                }
-              ]
-            );
-          }
-        });
-      } else {
-        actions.push({
-          label: '👀 Ask about Madame Vivienne\'s Gown',
-          handler: () => {
-            alert('Julian sweats nervously: "I-I haven\'t seen any gown! Look for clues on the floor before you question me!"');
-          }
-        });
-      }
-
-      this.openBallroomDialog(
-        'Julian Vance',
-        'Tailor Apprentice',
-        '🪡',
-        `“Oh! Uh... hello Detective Belle! What brings you to this quiet corner near the curtains? I was just... admiring the ballroom drapes!”`,
-        actions
-      );
-    }
-  }
-
-  openBallroomDialog(name, subtitle, icon, speech, customActions = []) {
-    const modal = document.getElementById('ballroom-dialog-modal');
-    const nameEl = document.getElementById('modal-char-name');
-    const subEl = document.getElementById('modal-char-subtitle');
-    const iconEl = document.getElementById('modal-char-icon');
-    const speechEl = document.getElementById('modal-char-speech');
-    const actionsContainer = document.getElementById('modal-char-actions');
-
-    if (!modal) return;
-
-    if (nameEl) nameEl.textContent = name;
-    if (subEl) subEl.textContent = subtitle;
-    if (iconEl) iconEl.textContent = icon;
-    if (speechEl) speechEl.textContent = speech;
-
-    if (actionsContainer) {
-      actionsContainer.innerHTML = '';
-      customActions.forEach(action => {
-        const btn = document.createElement('button');
-        btn.className = `dialog-action-btn ${action.isAccent ? 'accent' : ''}`;
-        btn.textContent = action.label;
-        btn.onclick = () => {
-          action.handler();
-        };
-        actionsContainer.appendChild(btn);
-      });
-    }
-
-    modal.classList.remove('hidden');
-  }
-
-  async solveBallroomCase() {
-    sounds.playVictory();
-    this.profile.stars += 300;
-    await this.db.updateProfile({ stars: this.profile.stars });
-    this.updateHeaderProfile();
-
-    this.openBallroomDialog(
-      'Madame Vivienne',
-      'High Fashion Couturière (Delighted!)',
-      '👑✨',
-      `“Mon Dieu! You found my stolen centerpiece gown! Julian confessed everything! You are the greatest detective in Hauteville! Come, wear the recovered Sapphire Gown and take the runway!”`,
-      [
-        {
-          label: '✨ Wear Gown & Walk The Runway! ✨',
-          isAccent: true,
-          handler: () => {
-            // Equip the gala skirt and take runway!
-            this.wardrobe.currentLook.bottoms = 'bottom-gala-skirt';
-            this.wardrobe.currentLook.outerwear = 'coat-midnight-cape';
-            this.updateAvatar();
-            document.getElementById('ballroom-dialog-modal').classList.add('hidden');
-            this.switchScene('runway');
-          }
-        }
-      ]
-    );
   }
 
   // ================= SCENE 3: THE ATELIER (DRESS-UP STUDIO) =================
@@ -573,12 +467,14 @@ class GameController {
     const grid = document.getElementById('wardrobe-items-grid');
     if (!grid) return;
 
-    const items = WARDROBE_DATA.items.filter(item => item.category === this.activeCategory);
+    const owned = new Set(this.profile?.ownedItems || []);
+    const items = WARDROBE_DATA.items.filter(item => item.category === this.activeCategory && (!item.rare || owned.has(item.id)));
 
     grid.innerHTML = items.map(item => {
       const isEquipped = this.wardrobe.currentLook[item.category] === item.id;
       return `
-        <div class="wardrobe-card ${isEquipped ? 'equipped' : ''}" data-id="${item.id}" data-cat="${item.category}">
+        <div class="wardrobe-card ${isEquipped ? 'equipped' : ''} ${item.rare ? 'rare' : ''}" data-id="${item.id}" data-cat="${item.category}">
+          ${item.rare ? '<span class="rare-badge">✨ RARE</span>' : ''}
           <div class="card-preview" style="border-bottom: 3px solid ${item.color}">${item.preview}</div>
           <div class="card-details">
             <h4 class="card-title">${item.name}</h4>
@@ -607,11 +503,9 @@ class GameController {
 
   updateAvatar() {
     const avatarContainer = document.getElementById('atelier-avatar-container');
-    const runwayDollContainer = document.getElementById('runway-doll-container');
     const svgCode = this.wardrobe.renderAvatarSVG();
 
     if (avatarContainer) avatarContainer.innerHTML = svgCode;
-    if (runwayDollContainer) runwayDollContainer.innerHTML = svgCode;
 
     const stats = this.wardrobe.calculateStats();
     const stealthVal = document.getElementById('stat-stealth');
@@ -621,79 +515,9 @@ class GameController {
     if (stealthVal) stealthVal.textContent = stats.stealth;
     if (glamourVal) glamourVal.textContent = stats.glamour;
     if (clueVal) clueVal.textContent = stats.clueBonus;
-  }
 
-  // ================= SCENE 4: RUNWAY SHOWDOWN =================
-  setupRunwayUI() {
-    const walkBtn = document.getElementById('btn-start-runway-walk');
-    if (walkBtn) {
-      walkBtn.addEventListener('click', () => {
-        this.triggerRunwayWalk();
-      });
-    }
-  }
-
-  async triggerRunwayWalk() {
-    const walkBtn = document.getElementById('btn-start-runway-walk');
-    const runwayStage = document.getElementById('runway-stage');
-    if (walkBtn) walkBtn.disabled = true;
-
-    runwayStage.classList.add('strut-active');
-    sounds.playCameraFlash();
-
-    setTimeout(() => sounds.playCameraFlash(), 600);
-    setTimeout(() => sounds.playCameraFlash(), 1200);
-
-    setTimeout(async () => {
-      runwayStage.classList.remove('strut-active');
-      if (walkBtn) walkBtn.disabled = false;
-
-      const activeCase = MYSTERY_CASES[0];
-      const stats = this.wardrobe.calculateStats();
-      const evaluation = this.runway.evaluateLook(stats, activeCase, 'suspect-julian');
-
-      sounds.playVictory();
-      this.profile.stars += 200;
-      await this.db.updateProfile({ stars: this.profile.stars });
-      this.updateHeaderProfile();
-
-      this.showRunwayResults(evaluation, activeCase);
-    }, 2000);
-  }
-
-  showRunwayResults(evalResult, activeCase) {
-    const verdictCard = document.getElementById('runway-verdict-card');
-    if (!verdictCard) return;
-
-    verdictCard.classList.remove('hidden');
-
-    verdictCard.innerHTML = `
-      <div class="verdict-banner success">
-        <h3>🎉 Standing Ovation on the Runway!</h3>
-        <p class="verdict-score-total">Runway Score: <strong>${evalResult.total} / 300 pts</strong></p>
-      </div>
-
-      <div class="judges-grid">
-        ${evalResult.judges.map(j => `
-          <div class="judge-card">
-            <div class="judge-avatar">${j.avatar}</div>
-            <h5>${j.name} <span class="judge-title">(${j.title})</span></h5>
-            <div class="judge-score-badge">${j.score} pts</div>
-            <p class="judge-comment">${j.comment}</p>
-          </div>
-        `).join('')}
-      </div>
-
-      <div class="verdict-actions">
-        <p class="reward-notice">⭐ Runway Reward: +200 Stars Claimed!</p>
-        <button id="close-verdict-btn" class="primary-btn">Return to Atelier</button>
-      </div>
-    `;
-
-    document.getElementById('close-verdict-btn').onclick = () => {
-      verdictCard.classList.add('hidden');
-      this.switchScene('fp-shop');
-    };
+    // dress your 3D detective too (and show friends your new look!)
+    this.play?.onLookChanged(this.wardrobe.currentLook);
   }
 
   // ================= SCENE 5: ONLINE CONTESTS & CLOSET =================

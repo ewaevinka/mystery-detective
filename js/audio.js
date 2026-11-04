@@ -171,6 +171,51 @@ class SoundEngine {
       current += note.d * 0.85;
     });
   }
+
+  // 🎶 A pretty "Case Closed!" song: soft chords, a happy melody and twinkly bells (about 8 seconds)
+  playCaseClosed() {
+    if (this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    const t0 = ctx.currentTime + 0.05;
+    const beat = 0.32;
+    const note = (freq, start, dur, type, vol) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(vol, start + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + dur + 0.05);
+    };
+    const hz = (n) => 440 * Math.pow(2, (n - 69) / 12); // MIDI note number -> frequency
+
+    // soft chords: C - Am - F - G - C
+    const chords = [[60, 64, 67], [57, 60, 64], [53, 57, 60], [55, 59, 62], [60, 64, 67, 72]];
+    chords.forEach((chord, i) => {
+      chord.forEach(n => note(hz(n), t0 + i * beat * 4, beat * (i === 4 ? 8 : 4.2), 'sine', 0.045));
+      note(hz(chord[0] - 12), t0 + i * beat * 4, beat * 4, 'triangle', 0.06);
+    });
+
+    // happy melody on top
+    const melody = [
+      [76, 1], [79, 1], [84, 2], [81, 1], [79, 1], [76, 2],
+      [77, 1], [81, 1], [84, 2], [83, 1], [79, 1], [74, 2], [72, 1], [76, 1], [79, 1], [84, 5]
+    ];
+    let t = t0;
+    melody.forEach(([n, len]) => {
+      note(hz(n), t, beat * len * 0.95, 'triangle', 0.11);
+      t += beat * len;
+    });
+
+    // twinkly bells at the end
+    [96, 91, 88, 84, 88, 91, 96, 100].forEach((n, i) => note(hz(n), t0 + beat * 20 + i * 0.09, 0.5, 'sine', 0.05));
+  }
 }
 
 export const sounds = new SoundEngine();

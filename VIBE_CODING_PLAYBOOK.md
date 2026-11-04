@@ -41,7 +41,16 @@ Claude Code will wake up, read your project rules, and say hello!
 
 Whenever you want to add something new to your game, just copy one of these ideas and paste it into Claude Code:
 
-### 👗 Prompt 1: Add a New Outfit
+### 👗 Prompt 1: Add a New Guest to the Ballroom
+> *"Claude, can you add a new character in the Grand Ballroom called 'Lord Sterling the Diamond Collector'? When I click 'Talk', he should say: 'Excuse me! Have you seen anyone drop golden glitter by the stairs?'"*
+
+### 🔍 Prompt 2: Add Another Secret Clue in the Ballroom
+> *"Claude, can you add another clue to find on the ballroom floor or by the tables? Like a 'Dropped Golden Cufflink' that we can inspect with the magnifying glass!"*
+
+### ✨ Prompt 3: Make the Teleport Button Even Sparklier
+> *"Claude, can you add more floating gems and swirling rainbow colors to the Pretty Teleport Button?"*
+
+### 👑 Prompt 4: Add a New Outfit to the Atelier
 > *"Claude, I want to add a new outfit to the wardrobe! Let's add a 'Glittering Starry Ballerina Dress' under the dresses/bottoms category. It should be pastel lavender with silver sparkles and give +40 Glamour points!"*
 
 ### 🔍 Prompt 2: Add a Brand-New Mystery Case

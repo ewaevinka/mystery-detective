@@ -103,6 +103,8 @@ export class DetectiveDatabase {
       // Ensure backwards compatibility with fields
       if (!profile.displayName) profile.displayName = profile.detectiveName || 'Detective Belle';
       if (!profile.username) profile.username = 'detective_belle';
+      if (!profile.ownedItems) profile.ownedItems = [];        // rare items you've claimed
+      if (!profile.claimedRewards) profile.claimedRewards = {}; // which season rewards you took
       return profile;
     } catch (e) {
       console.error('Error reading profile:', e);

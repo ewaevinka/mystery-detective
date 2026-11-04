@@ -11,23 +11,28 @@ Welcome Claude! You are pair programming with an **11-year-old game creator and 
 4. **Preserve Zero-Friction Setup:** 
    - **DO NOT** add complicated build pipelines, Webpack, Babel, or heavy npm dependencies unless explicitly requested.
    - Keep the app running as **pure Vanilla HTML, CSS, and ES Modules (`type="module"`)**.
-   - The game works simply by opening `index.html` or running `python3 -m http.server 8888`.
+   - The game runs with `python3 -m http.server 8888` (ES modules need a server; the 3D engine and friends server load from a CDN, so an internet connection is needed).
 
 ---
 
 ## 🎮 Game Architecture Overview
 
-- **`index.html`**: Main game view with 4 core tabs:
-  - ✂️ **The Atelier** (Dress-up doll, hair, skin, coats, skirts, accessories, detective stats)
-  - 📂 **Case Files** (Mystery cases, client briefings, clue magnifier inspection, suspect interrogation)
-  - 🌟 **The Runway** (Catwalk walk, camera flashes, 3 celebrity judges' scoreboards)
-  - 🏆 **Contests & Closet** (Community outfit voting, closet saves, outfit codes)
-- **`css/style.css`**: Modern haute-couture detective aesthetic (royal purple, gold trims, glowing neon accents, responsive layout).
-- **`js/wardrobe.js`**: SVG layered doll engine and wardrobe database (hair, skin, tops, skirts, coats, shoes, hats, detective magnifying glass).
-- **`js/cases.js`**: Mystery cases, client stories, clues, suspects, alibis, and confessions.
-- **`js/runway.js`**: Runway scoring algorithms and judge personality dialogues (Madame Vivienne, Inspector Pierre, Zephyr).
-- **`js/database.js`**: Storage engine. Supports instant `localStorage` (works offline with zero setup) and is ready for cloud multiplayer (Supabase/Firebase).
-- **`js/audio.js`**: Built-in sound effects using the Web Audio API (camera flashes, equip chimes, clue victory tunes) — no external mp3 files needed!
+- **`index.html`**: Main page with 3 tabs:
+  - 🌍 **Play the Mystery**: 3D first-person world (start menu: Play Solo / Create Server / Join with code)
+  - ✂️ **Dress-Up Studio** (DTI-style fashion doll, hair, skin, coats, skirts, accessories, stats)
+  - 🏆 **Contests & Closet** (outfit voting, closet saves, outfit codes)
+- **`css/style.css`**: Haute-couture detective look (royal purple, gold trims, neon accents).
+- **`js/world/world.js`**: The 3D world (Three.js from a CDN via an importmap, no install needed). Office → magic portal → one of 2 maps: 🏰 Grand Gala (parking lot + ballroom + secret garden) or 🎤 Starlight Arena (plaza with Ferris wheel + concert hall + backstage with VIP lounge). Only the lights of the place you are in are switched on, to keep it fast. WASD/arrows walk, hold mouse + drag to look (no pointer lock, on purpose), E interact, V camera, Space jump.
+- **`js/world/avatar3d.js`**: Realistic DTI-style 3D characters built from shapes, dressed in any wardrobe look (poses: idle, walk, dance, hide, cheer, sing).
+- **`js/world/layout.js`**: The map: where the desk, cars, tables, suspect spots, clue spots and hiding spots are.
+- **`js/mystery.js`**: The Mystery Maker. Builds a new random case from a "seed" (same seed = same case, which is how friends share one).
+- **`js/cases.js`**: Mystery ingredients: customers, problems (crimes), suspects, singers, motives, clue traits, chatter, dress codes. Things can be limited to one map with `venues`.
+- **`js/play.js`**: Game director: story steps, talking windows, notebook, HUD, friend events, and the CASE CLOSED ending (with music from `sounds.playCaseClosed()`).
+- **`js/multiplayer.js`**: Create Server / Join with code (PeerJS from a CDN). The host relays everything. No chat on purpose.
+- **`js/ranks.js`**: 🏅 13 detective ranks by ⭐ stars, and seasonal RARE rewards for the big ranks. Each season's items disappear forever when it ends (claimed ones are kept). Opened by clicking the stars or the rank badge in the header. Rare items live in `WARDROBE_DATA.items` with `rare: true` and a `base` item whose shape they reuse in their own color.
+- **`js/wardrobe.js`**: Wardrobe database + the 2D SVG fashion doll for the Dress-Up Studio.
+- **`js/database.js`**: localStorage saves (profile, stars, closet, contests).
+- **`js/audio.js`**: Sound effects made with the Web Audio API (no mp3 files).
 
 ---
 
@@ -36,13 +41,14 @@ Welcome Claude! You are pair programming with an **11-year-old game creator and 
 ### 1. Adding a New Dress or Accessory
 - Open `js/wardrobe.js`.
 - Add an object to `WARDROBE_DATA.items` with `id`, `category`, `name`, `styleTag`, `stealthBonus`, `glamourBonus`, `color`, and `preview`.
-- If it has special visual art, update `renderAvatarSVG()` in `js/wardrobe.js`.
+- For special art, update `renderAvatarSVG()` (2D doll) and `Character.build()` in `js/world/avatar3d.js` (3D doll).
 
-### 2. Adding a New Mystery Case
-- Open `js/cases.js`.
-- Add a new case object to `MYSTERY_CASES` with `title`, `client`, `briefing`, `objective`, `clues`, and `suspects` (marking one with `isGuilty: true`).
+### 2. Adding Mystery Variety
+- Mysteries are random every time! Add new entries to the lists in `js/cases.js` (`CLIENTS`, `CRIMES`, `SUSPECT_POOL`, `SINGERS`, `MOTIVES`, `CHATTER`).
+- New hiding, suspect or clue spots go in `VENUE_SPOTS` in `js/world/layout.js` (check they aren't inside a wall, car or lamp post!).
+- The designer asked: no runway walk, and no "precious treasure in a glass case" crimes. Customers are everyday people.
 
-### 3. Adding New Sounds or Runway Effects
+### 3. Adding New Sounds or Effects
 - Use `js/audio.js` to create cute synth melodies or chimes without needing external audio files.
 
 ---
